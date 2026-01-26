@@ -19,14 +19,14 @@ OBS_DIR = "obs"
 CORR_DIR = "corr"
 
 # 固定パラメータ
-RECENT_DAYS = 7  # 直近8日（週間）
-OUTLIER_TH = 4.0      # 観測なし時: corr - pred の閾値
-OUTLIER_TH_OBS = 2.0  # 観測あり時: corr - obs の閾値
-OBS_MATCH_TOL_MIN = 60   # 観測近傍マージ許容（分）
-CORR_MATCH_TOL_MIN = 60  # 補正近傍マージ許容（分）
+RECENT_DAYS = 7           # 直近8日（週間）
+OUTLIER_TH = 4.0          # 観測なし時: corr - pred の閾値
+OUTLIER_TH_OBS = 2.0      # 観測あり時: corr - obs の閾値
+OBS_MATCH_TOL_MIN = 60    # 観測近傍マージ許容（分）
+CORR_MATCH_TOL_MIN = 60   # 補正近傍マージ許容（分）
 TEMP_MIN, TEMP_MAX = -2.0, 40.0
 PHYS_MIN, PHYS_MAX = -1.5, 35.0
-HIGH_TEMP_TH = 22.0  # コメント用
+HIGH_TEMP_TH = 22.0       # コメント用
 RANGE_STABLE = 0.5
 DELTA_THRESH = 0.3
 DISPLAY_MODE = "arrow"
@@ -227,15 +227,19 @@ def load_corr_for(filename: str, fp: str = "") -> pd.DataFrame:
         corr_col = "Temp" if "Temp" in df.columns else None
     if corr_col is None:
         return pd.DataFrame()
-    low_col  = _detect_column(df, ["corr", "low"])  or ("CorrLow"  if "CorrLow"  in df.columns else None)
+    low_col = _detect_column(df, ["corr", "low"]) or ("CorrLow" if "CorrLow" in df.columns else None)
     high_col = _detect_column(df, ["corr", "high"]) or ("CorrHigh" if "CorrHigh" in df.columns else None)
     rename_map = {corr_col: "corr_temp"}
-    if low_col:  rename_map[low_col]  = "corr_low"
-    if high_col: rename_map[high_col] = "corr_high"
+    if low_col:
+        rename_map[low_col] = "corr_low"
+    if high_col:
+        rename_map[high_col] = "corr_high"
     df = df.rename(columns=rename_map)
     keep = ["datetime", "depth_m", "corr_temp"]
-    if "corr_low" in df.columns:  keep.append("corr_low")
-    if "corr_high" in df.columns: keep.append("corr_high")
+    if "corr_low" in df.columns:
+        keep.append("corr_low")
+    if "corr_high" in df.columns:
+        keep.append("corr_high")
     df = df[keep].dropna(subset=["datetime", "depth_m", "corr_temp"]).copy()
     df["date_day"] = df["datetime"].dt.date
     return df
@@ -279,12 +283,12 @@ def add_corr(df_pred: pd.DataFrame, df_corr: pd.DataFrame) -> pd.DataFrame:
 
     tol = pd.Timedelta(minutes=CORR_MATCH_TOL_MIN)
     right_cols = ["corr_temp"]
-    if "corr_low" in df_corr.columns: right_cols.append("corr_low")
-    if "corr_high" in df_corr.columns: right_cols.append("corr_high")
+    if "corr_low" in df_corr.columns:
+        right_cols.append("corr_low")
+    if "corr_high" in df_corr.columns:
+        right_cols.append("corr_high")
 
-    right = (
-        df_corr.sort_values(["depth_m", "datetime"])[["datetime", "depth_m"] + right_cols]
-    )
+    right = df_corr.sort_values(["depth_m", "datetime"])[["datetime", "depth_m"] + right_cols]
     left = df_pred.sort_values(["depth_m", "datetime"]).copy()
 
     merged = safe_merge_asof_by_depth_keep_left(
@@ -516,10 +520,13 @@ def build_daily_table_html(df_day: pd.DataFrame, depths: List[int], corr_on: boo
     return html
 
 def make_layer_groups(depths: List[int]) -> Dict[str, List[int]]:
-    if not depths: return {"表層": [], "中層": [], "底層": []}
+    if not depths:
+        return {"表層": [], "中層": [], "底層": []}
     d_sorted = sorted(depths); n = len(d_sorted)
     if n <= 3:
-        top = d_sorted[:1]; mid = d_sorted[1:2] if n >= 2 else []; bot = d_sorted[2:] if n >= 3 else (d_sorted[-1:] if n >= 1 else [])
+        top = d_sorted[:1]
+        mid = d_sorted[1:2] if n >= 2 else []
+        bot = d_sorted[2:] if n >= 3 else (d_sorted[-1:] if n >= 1 else [])
     elif n in (4, 5):
         top = d_sorted[:2]; mid = d_sorted[2:3]; bot = d_sorted[3:]
     else:
@@ -540,6 +547,7 @@ def summarize_weekly_for_depth(layer_name: str, target_depth: int, df_period: pd
     g = df_period[df_period["depth_m"] == int(target_depth)].sort_values("datetime")
     if g.empty:
         return None
+
     series = _pick_series_corr_then_pred(g)
     if series is None:
         return None
@@ -776,7 +784,8 @@ if view_mode == "予測カレンダー":
 
     if cal_choice == "週間表示（昼頃）":
         selected_day = st.date_input(
-            "", value=max_day, min_value=min_day, max_value=max_day, key="week_base_day", label_visibility="collapsed"
+            "", value=max_day, min_value=min_day, max_value=max_day,
+            key="week_base_day", label_visibility="collapsed"
         )
         start_day = pd.Timestamp(selected_day) - pd.Timedelta(days=RECENT_DAYS - 1)
         end_day = pd.Timestamp(selected_day)
@@ -820,23 +829,24 @@ if view_mode == "予測カレンダー":
         st_html(full_html, height=650, scrolling=True)
 
     else:  # 選択日（1時間毎）
+        # --- セーフガード：このブロック内で必ず範囲を決める（rerun順序対策） ---
+        if "date_day" in df_pred.columns:
+            _days = sorted(df_pred["date_day"].dropna().unique())
+            if _days:
+                _min_day = min(_days)
+                _max_day = max(_days)
+            else:
+                _min_day = latest_day
+                _max_day = latest_day
+        else:
+            _min_day = latest_day
+            _max_day = latest_day
 
-	    # --- セーフガード：このブロック内で必ず範囲を決める ---
-	if "date_day" in df_pred.columns:
-        　　_days = sorted(df_pred["date_day"].dropna().unique())
-　　        if _days:
-    　　        _min_day = min(_days)
-        　　    _max_day = max(_days)
-　　        else:
-    　　        _min_day = latest_day
-        　　    _max_day = latest_day
-　　    else:
-    　　    _min_day = latest_day
-        　　_max_day = latest_day
-	
         selected_day = st.date_input(
-            "", value=max_day, min_value=min_day, max_value=max_day, key="day_sel", label_visibility="collapsed"
+            "", value=_max_day, min_value=_min_day, max_value=_max_day,
+            key="day_sel", label_visibility="collapsed"
         )
+
         df_day = df_pred[df_pred["date_day"] == selected_day].copy()
         if corr_available:
             df_corr_sel = df_corr[df_corr["date_day"] == selected_day].copy()
@@ -905,7 +915,8 @@ elif view_mode == "水温グラフ":
     else:
         start_default = max(min_day, max_day - pd.Timedelta(days=29))
         start_day, end_day = st.slider(
-            "", min_value=min_day, max_value=max_day, value=(start_default, max_day), key="graph_period_slider", label_visibility="collapsed"
+            "", min_value=min_day, max_value=max_day, value=(start_default, max_day),
+            key="graph_period_slider", label_visibility="collapsed"
         )
         title_suffix = f"（{start_day:%Y-%m-%d}〜{end_day:%Y-%m-%d}・時間別）"
 
@@ -935,10 +946,10 @@ elif view_mode == "水温グラフ":
         df_obs_period = df_obs[(df_obs["date_day"] >= start_day) & (df_obs["date_day"] <= end_day)].copy()
         if not df_obs_period.empty:
             tol = pd.Timedelta(minutes=CORR_MATCH_TOL_MIN)
-            left = df_period.sort_values(["depth_m","datetime"]).copy()
-            right = df_obs_period.sort_values(["depth_m","datetime"])[["datetime","depth_m","obs_temp"]].copy()
+            left = df_period.sort_values(["depth_m", "datetime"]).copy()
+            right = df_obs_period.sort_values(["depth_m", "datetime"])[["datetime", "depth_m", "obs_temp"]].copy()
             merged_for_points = safe_merge_asof_by_depth_keep_left(
-                left=left, right=right, tolerance=tol, right_value_cols=["obs_temp"], suffixes=("","")
+                left=left, right=right, tolerance=tol, right_value_cols=["obs_temp"], suffixes=("", "")
             )
 
     # corr を1Hに整形（帯があれば一緒に）
