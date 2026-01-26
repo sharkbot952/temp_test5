@@ -746,12 +746,6 @@ fp_pred = file_fingerprint(pred_path)
 fp_corr = file_fingerprint(corr_path)
 fp_obs  = file_fingerprint(obs_path)
 
-# 任意：手動でキャッシュクリア
-if st.button("🔄 データを再読込（キャッシュクリア）", help="Streamlitのデータキャッシュを消して再読込します"):
-    st.cache_data.clear()
-    st.cache_resource.clear()
-    st.experimental_rerun()
-
 # =========================================
 # 予測カレンダー
 # =========================================
@@ -827,7 +821,7 @@ if view_mode == "予測カレンダー":
 
     else:  # 選択日（1時間毎）
         selected_day = st.date_input(
-            "", value=max_day, min_value=min_day, max_value=max_day, key="day_sel", label_visibility="collapsed"
+            "", value=max_day, min_value=min_day, max_value=max_value, key="day_sel", label_visibility="collapsed"
         )
         df_day = df_pred[df_pred["date_day"] == selected_day].copy()
         if corr_available:
