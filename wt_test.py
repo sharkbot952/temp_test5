@@ -19,7 +19,7 @@ OBS_DIR = "obs"
 CORR_DIR = "corr"
 
 # 固定パラメータ
-RECENT_DAYS = 7           # 直近8日（週間）
+RECENT_DAYS = 7           # 直近8日（週間） ※本コードでは8日固定を計算式で表現
 OUTLIER_TH = 4.0          # 観測なし時: corr - pred の閾値
 OUTLIER_TH_OBS = 2.0      # 観測あり時: corr - obs の閾値
 OBS_MATCH_TOL_MIN = 60    # 観測近傍マージ許容（分）
@@ -30,6 +30,9 @@ HIGH_TEMP_TH = 22.0       # コメント用
 RANGE_STABLE = 0.5
 DELTA_THRESH = 0.3
 DISPLAY_MODE = "arrow"
+
+# === 追加：今日（JST）基準と“未来8日”ウィンドウの明示フラグ ===
+WEEK_WINDOW_FORWARD = True  # True: 今日→先7日（計8日）、False: 過去7日→今日（計8日）
 
 def pjoin(*parts: str) -> str:
     return os.path.normpath(os.path.join(*parts))
@@ -227,19 +230,15 @@ def load_corr_for(filename: str, fp: str = "") -> pd.DataFrame:
         corr_col = "Temp" if "Temp" in df.columns else None
     if corr_col is None:
         return pd.DataFrame()
-    low_col = _detect_column(df, ["corr", "low"]) or ("CorrLow" if "CorrLow" in df.columns else None)
+    low_col  = _detect_column(df, ["corr", "low"])  or ("CorrLow"  if "CorrLow"  in df.columns else None)
     high_col = _detect_column(df, ["corr", "high"]) or ("CorrHigh" if "CorrHigh" in df.columns else None)
     rename_map = {corr_col: "corr_temp"}
-    if low_col:
-        rename_map[low_col] = "corr_low"
-    if high_col:
-        rename_map[high_col] = "corr_high"
+    if low_col:  rename_map[low_col]  = "corr_low"
+    if high_col: rename_map[high_col] = "corr_high"
     df = df.rename(columns=rename_map)
     keep = ["datetime", "depth_m", "corr_temp"]
-    if "corr_low" in df.columns:
-        keep.append("corr_low")
-    if "corr_high" in df.columns:
-        keep.append("corr_high")
+    if "corr_low" in df.columns:  keep.append("corr_low")
+    if "corr_high" in df.columns: keep.append("corr_high")
     df = df[keep].dropna(subset=["datetime", "depth_m", "corr_temp"]).copy()
     df["date_day"] = df["datetime"].dt.date
     return df
@@ -283,10 +282,8 @@ def add_corr(df_pred: pd.DataFrame, df_corr: pd.DataFrame) -> pd.DataFrame:
 
     tol = pd.Timedelta(minutes=CORR_MATCH_TOL_MIN)
     right_cols = ["corr_temp"]
-    if "corr_low" in df_corr.columns:
-        right_cols.append("corr_low")
-    if "corr_high" in df_corr.columns:
-        right_cols.append("corr_high")
+    if "corr_low" in df_corr.columns: right_cols.append("corr_low")
+    if "corr_high" in df_corr.columns: right_cols.append("corr_high")
 
     right = df_corr.sort_values(["depth_m", "datetime"])[["datetime", "depth_m"] + right_cols]
     left = df_pred.sort_values(["depth_m", "datetime"]).copy()
@@ -767,6 +764,9 @@ if view_mode == "予測カレンダー":
         st.warning("予測データが読み込めませんでした")
         st.stop()
 
+    # ここで今日（JST）を取得（毎セッション初期評価時に自動で今日へ）
+    today_jst = pd.Timestamp.now(tz="Asia/Tokyo").date()
+
     latest_day = df_pred["date_day"].max()
     available_days = sorted(df_pred["date_day"].unique())
     min_day = min(available_days) if available_days else latest_day
@@ -783,12 +783,22 @@ if view_mode == "予測カレンダー":
         )
 
     if cal_choice == "週間表示（昼頃）":
+        # デフォルトは「今日」。範囲外ならクランプ
+        base_day_week = min(max(today_jst, min_day), max_day)
+
         selected_day = st.date_input(
-            "", value=max_day, min_value=min_day, max_value=max_day,
+            "", value=base_day_week, min_value=min_day, max_value=max_day,
             key="week_base_day", label_visibility="collapsed"
         )
-        start_day = pd.Timestamp(selected_day) - pd.Timedelta(days=RECENT_DAYS - 1)
-        end_day = pd.Timestamp(selected_day)
+
+        # ★ 8日間表示：WEEK_WINDOW_FORWARD=True で 今日→先7日、False で 過去7日→今日
+        if WEEK_WINDOW_FORWARD:
+            start_day = pd.Timestamp(selected_day)
+            end_day   = start_day + pd.Timedelta(days=7)  # 当日→先7日（端含め8本）
+        else:
+            end_day   = pd.Timestamp(selected_day)
+            start_day = end_day - pd.Timedelta(days=7)    # 過去7日→当日（端含め8本）
+
         day_list = list(pd.date_range(start_day, end_day, freq="D"))
 
         df_period = df_pred[df_pred["date_day"].isin([d.date() for d in day_list])].copy()
@@ -829,7 +839,7 @@ if view_mode == "予測カレンダー":
         st_html(full_html, height=650, scrolling=True)
 
     else:  # 選択日（1時間毎）
-        # --- セーフガード：このブロック内で必ず範囲を決める（rerun順序対策） ---
+        # --- セーフガード：このブロック内で必ず範囲を決める（NameError/範囲外対策） ---
         if "date_day" in df_pred.columns:
             _days = sorted(df_pred["date_day"].dropna().unique())
             if _days:
@@ -842,8 +852,11 @@ if view_mode == "予測カレンダー":
             _min_day = latest_day
             _max_day = latest_day
 
+        # デフォルトは「今日」。範囲外ならクランプ
+        base_day_day = min(max(pd.Timestamp.now(tz="Asia/Tokyo").date(), _min_day), _max_day)
+
         selected_day = st.date_input(
-            "", value=_max_day, min_value=_min_day, max_value=_max_day,
+            "", value=base_day_day, min_value=_min_day, max_value=_max_day,
             key="day_sel", label_visibility="collapsed"
         )
 
@@ -946,10 +959,10 @@ elif view_mode == "水温グラフ":
         df_obs_period = df_obs[(df_obs["date_day"] >= start_day) & (df_obs["date_day"] <= end_day)].copy()
         if not df_obs_period.empty:
             tol = pd.Timedelta(minutes=CORR_MATCH_TOL_MIN)
-            left = df_period.sort_values(["depth_m", "datetime"]).copy()
-            right = df_obs_period.sort_values(["depth_m", "datetime"])[["datetime", "depth_m", "obs_temp"]].copy()
+            left = df_period.sort_values(["depth_m","datetime"]).copy()
+            right = df_obs_period.sort_values(["depth_m","datetime"])[["datetime","depth_m","obs_temp"]].copy()
             merged_for_points = safe_merge_asof_by_depth_keep_left(
-                left=left, right=right, tolerance=tol, right_value_cols=["obs_temp"], suffixes=("", "")
+                left=left, right=right, tolerance=tol, right_value_cols=["obs_temp"], suffixes=("","")
             )
 
     # corr を1Hに整形（帯があれば一緒に）
