@@ -821,7 +821,7 @@ if view_mode == "予測カレンダー":
 
     else:  # 選択日（1時間毎）
         selected_day = st.date_input(
-            "", value=max_day, min_value=min_day, max_value=max_value, key="day_sel", label_visibility="collapsed"
+            "", value=max_day, min_value=min_day, max_value=max_day, key="day_sel", label_visibility="collapsed"
         )
         df_day = df_pred[df_pred["date_day"] == selected_day].copy()
         if corr_available:
