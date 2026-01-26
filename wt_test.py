@@ -820,6 +820,20 @@ if view_mode == "予測カレンダー":
         st_html(full_html, height=650, scrolling=True)
 
     else:  # 選択日（1時間毎）
+
+	    # --- セーフガード：このブロック内で必ず範囲を決める ---
+	if "date_day" in df_pred.columns:
+        　　_days = sorted(df_pred["date_day"].dropna().unique())
+　　        if _days:
+    　　        _min_day = min(_days)
+        　　    _max_day = max(_days)
+　　        else:
+    　　        _min_day = latest_day
+        　　    _max_day = latest_day
+　　    else:
+    　　    _min_day = latest_day
+        　　_max_day = latest_day
+	
         selected_day = st.date_input(
             "", value=max_day, min_value=min_day, max_value=max_day, key="day_sel", label_visibility="collapsed"
         )
