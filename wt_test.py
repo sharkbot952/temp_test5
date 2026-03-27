@@ -465,31 +465,84 @@ def render_cell_html(
     )
     return f"<td style='background:{bg_color}'>{content}</td>"
 
+
 def build_weekly_table_html(df_period: pd.DataFrame, day_list: List[pd.Timestamp], depths: List[int], corr_on: bool) -> str:
     times = [d.strftime('%m/%d') for d in day_list]
     html = (
         '<div class="calendar-scroll-container"><table class="calendar-table">'
         "<thead><tr><th>水深</th>" + "".join([f"<th>{t}</th>" for t in times]) + "</tr></thead><tbody>"
     )
+
     for depth in depths:
         html += f"<tr><td class='depth-cell'>{depth}m</td>"
+
         for day in day_list:
             g = df_period[(df_period["date_day"] == day.date()) & (df_period["depth_m"] == depth)]
+
             if not g.empty:
+                series = _pick_series_corr_then_pred(g)
+                temp_rep = np.nan
+                if series is not None:
+                    vv = pd.to_numeric(series, errors="coerce")
+                    vv = vv[(vv > PHYS_MIN) & (vv < PHYS_MAX)]
+                    if vv.notna().sum() >= 1:
+                        temp_rep = float(vv.median())
+
+                # pred表示（小さい文字）は「predの日中央値」固定にする（わかりやすさ優先）
+                pred_rep = np.nan
+                if "pred_temp" in g.columns:
+                    vp = pd.to_numeric(g["pred_temp"], errors="coerce")
+                    vp = vp[(vp > PHYS_MIN) & (vp < PHYS_MAX)]
+                    if vp.notna().sum() >= 1:
+                        pred_rep = float(vp.median())
+
+                # corr表示（赤字）は「corrの日中央値」ただしcorr有効時のみ
+                corr_rep = None
+                if corr_on and ("corr_temp" in g.columns):
+                    vc = pd.to_numeric(g["corr_temp"], errors="coerce")
+                    vc = vc[(vc > PHYS_MIN) & (vc < PHYS_MAX)]
+                    if vc.notna().sum() >= 1:
+                        corr_rep = float(vc.median())
+
+                # obsは「その日の代表（中央値）」にしておく（補正有効判定用）
+                obs_rep = None
+                if "obs_temp" in g.columns:
+                    vo = pd.to_numeric(g["obs_temp"], errors="coerce")
+                    vo = vo[(vo > PHYS_MIN) & (vo < PHYS_MAX)]
+                    if vo.notna().sum() >= 1:
+                        obs_rep = float(vo.median())
+
+                # -----------------------------
+                # (B) 流れ：従来どおり 12:00 近傍の1点
+                # -----------------------------
                 target_dt = pd.Timestamp(day.date()) + pd.Timedelta(hours=12)
                 row = g.assign(_diff=(g["datetime"] - target_dt).abs()).sort_values("_diff").iloc[[0]]
-                temp_ark = row
-                temp_pred = float(temp_ark["pred_temp"].values[0]) if "pred_temp" in temp_ark.columns else np.nan
-                speed_val = float(temp_ark["Speed"].values[0]) if "Speed" in temp_ark.columns else np.nan
-                dir_val = float(temp_ark["Direction_deg"].values[0]) if "Direction_deg" in temp_ark.columns else np.nan
-                temp_corr = float(temp_ark["corr_temp"].values[0]) if "corr_temp" in temp_ark.columns else None
-                temp_obs = float(temp_ark["obs_temp"].values[0]) if ("obs_temp" in temp_ark.columns and not pd.isna(temp_ark["obs_temp"].values[0])) else None
-                html += render_cell_html(temp_pred, speed_val, dir_val, temp_corr, corr_on, temp_obs=temp_obs)
+
+                speed_val = float(row["Speed"].values[0]) if "Speed" in row.columns else np.nan
+                dir_val   = float(row["Direction_deg"].values[0]) if "Direction_deg" in row.columns else np.nan
+
+                # -----------------------------
+                # セル描画：温度は代表値で渡す
+                # - pred側は pred_rep
+                # - corr側は corr_rep（Noneなら表示されない）
+                # -----------------------------
+                html += render_cell_html(
+                    temp_pred=pred_rep,
+                    speed_mps=speed_val,
+                    dir_deg=dir_val,
+                    temp_corr_raw=corr_rep,
+                    corr_on=corr_on,
+                    temp_obs=obs_rep,
+                )
+
             else:
                 html += "<td>-</td>"
+
         html += "</tr>\n"
+
     html += "</tbody></table></div>"
     return html
+
 
 def build_daily_table_html(df_day: pd.DataFrame, depths: List[int], corr_on: bool) -> str:
     hours_list = sorted(df_day["datetime"].dt.floor("h").unique())
