@@ -993,15 +993,19 @@ elif view_mode == "水温グラフ":
             df_period.groupby(["depth_m", "datetime"], as_index=False).agg({"pred_temp": "median"})
         )
     if not df_period.empty:
-        df_period = (
-            df_period.sort_values("datetime")
-            .groupby("depth_m", group_keys=False)
-            .apply(lambda g: (
-                g.drop(columns=["depth_m"]).set_index("datetime")
-                .resample("1H").median(numeric_only=True).interpolate(method="time", limit=2).reset_index()
-                .assign(depth_m=int(g["depth_m"].iloc[0]))
-            ))
-        )
+            df_period = (
+                df_period.sort_values("datetime")
+                .groupby("depth_m", group_keys=False)
+                .apply(lambda g: (
+                    g.drop(columns=["depth_m"], errors="ignore")
+                     .set_index("datetime")
+                     .resample("1h")
+                     .median(numeric_only=True)
+                     .interpolate(method="time", limit=2)
+                     .reset_index()
+                     .assign(depth_m=int(g.name))
+                ))
+            )
     if "depth_m" in df_period.columns:
         df_period["depth_m"] = pd.to_numeric(df_period["depth_m"], errors="coerce").round(0).astype("Int64")
 
@@ -1029,10 +1033,10 @@ elif view_mode == "水温グラフ":
                 df_corr_period.sort_values("datetime")
                 .groupby("depth_m", group_keys=False)
                 .apply(lambda g: (
-                    g.drop(columns=["depth_m"])
+                    g.drop(columns=["depth_m"], errors="ignore")
                     .set_index("datetime")[use_cols]
-                    .resample("1H").median().dropna(how="all").reset_index()
-                    .assign(depth_m=int(g["depth_m"].iloc[0]))
+                    .resample("1h").median().dropna(how="all").reset_index()
+                    .assign(depth_m=int(g.name))
                 ))
             )
 
