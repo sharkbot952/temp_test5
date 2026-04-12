@@ -561,7 +561,7 @@ def build_weekly_table_html(df_period: pd.DataFrame, day_list: List[pd.Timestamp
                     if vc.notna().sum() >= 1:
                         corr_rep = float(vc.median())
 
-                # obsは「その日の代表（中央値）」にしておく（補正有効判定用）
+                # obsは「その日の代表（中央値）」
                 obs_rep = None
                 if "obs_temp" in g.columns:
                     vo = pd.to_numeric(g["obs_temp"], errors="coerce")
@@ -570,7 +570,7 @@ def build_weekly_table_html(df_period: pd.DataFrame, day_list: List[pd.Timestamp
                         obs_rep = float(vo.median())
 
                 # -----------------------------
-                # (B) 流れ：従来どおり 12:00 近傍の1点
+                # (B) 流れ：
                 # -----------------------------
                 target_dt = pd.Timestamp(day.date()) + pd.Timedelta(hours=12)
                 row = g.assign(_diff=(g["datetime"] - target_dt).abs()).sort_values("_diff").iloc[[0]]
