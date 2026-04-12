@@ -1440,9 +1440,10 @@ elif view_mode == "水温図":
             df_period.sort_values("datetime")
             .groupby("depth_m", group_keys=False)
             .apply(lambda g: (
-                g.drop(columns=["depth_m"]).set_index("datetime")
+                g.drop(columns=["depth_m"], errors="ignore")
+                .set_index("datetime")
                 .resample("1H").median(numeric_only=True).interpolate(method="time", limit=2).reset_index()
-                .assign(depth_m=int(g["depth_m"].iloc[0]))
+                .assign(depth_m=int(g.name) if g.name is not None else pd.NA)
             ))
         )
     if "depth_m" in df_period.columns:
@@ -1470,10 +1471,10 @@ elif view_mode == "水温図":
                 df_corr_period.sort_values("datetime")
                 .groupby("depth_m", group_keys=False)
                 .apply(lambda g: (
-                    g.drop(columns=["depth_m"])
+                    g.drop(columns=["depth_m"], errors="ignore")
                     .set_index("datetime")[use_cols]
                     .resample("1H").median().dropna(how="all").reset_index()
-                    .assign(depth_m=int(g["depth_m"].iloc[0]))
+                    .assign(depth_m=int(g.name) if g.name is not None else pd.NA)
                 ))
             )
 
