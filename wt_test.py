@@ -1427,7 +1427,7 @@ elif view_mode == "水温図":
         except Exception:
             contour_agg = st.radio("", ["1時間", "日平均"], index=1, horizontal=True, key="graph_contour_agg_radio", label_visibility="collapsed")
 
-    snap_freq = "1H" if contour_agg == "1時間" else "1D"
+    snap_freq = "1h" if contour_agg == "1時間" else "1D"
 
     df_period = df_pred[(df_pred["date_day"] >= start_day) & (df_pred["date_day"] <= end_day)].copy()
     df_period = df_period.sort_values("datetime")
@@ -1648,8 +1648,8 @@ elif view_mode == "水温図":
    
         t0 = pd.Timestamp(start_day)
         t1 = pd.Timestamp(end_day)
-        if snap_freq == "1H":
-            time_grid = pd.date_range(t0, t1 + pd.Timedelta(days=1) - pd.Timedelta(hours=1), freq="1H")
+        if snap_freq == "1h":
+            time_grid = pd.date_range(t0, t1 + pd.Timedelta(days=1) - pd.Timedelta(hours=1), freq="1h")
         else:
             time_grid = pd.date_range(t0, t1, freq="1D")
    
@@ -1687,10 +1687,10 @@ elif view_mode == "水温図":
         def _render_wt_contour(_contour_value: str):
             contour_value = _contour_value
             if graph_style == "折れ線":
-                diff_freq = "1H"
+                diff_freq = "1h"
             else:
                 diff_freq = (
-                    "1H"
+                    "1h"
                     if ("graph_contour_agg" in st.session_state
                         and st.session_state.get("graph_contour_agg") == "1時間")
                     else "1D"
@@ -1703,7 +1703,7 @@ elif view_mode == "水温図":
             try:
                 full_times = pd.date_range(start_ts, end_ts, freq=diff_freq, inclusive='left')
             except TypeError:
-                step = pd.Timedelta(hours=1) if diff_freq == "1H" else pd.Timedelta(days=1)
+                step = pd.Timedelta(hours=1) if diff_freq == "1h" else pd.Timedelta(days=1)
                 full_times = pd.date_range(start_ts, end_ts - step, freq=diff_freq)
         
             use_corr_bg = (corr_available and not df_corr_period.empty and "corr_temp" in df_corr_period.columns)
@@ -1758,7 +1758,7 @@ elif view_mode == "水温図":
                 out = out.rename(columns={value_col: out_col})
                 return out
             
-            obs_bin = _bin_series(df_obs, "obs_temp", ("median" if diff_freq == "1H" else "mean"), "obs")
+            obs_bin = _bin_series(df_obs, "obs_temp", ("median" if diff_freq == "1h" else "mean"), "obs")
             pred_bin = _bin_series(df_period, "pred_temp", "mean", "pred")
             corr_bin = _bin_series(df_corr_period, "corr_temp", "mean", "corr")
             thetao_bin = _bin_series(df_thetao, "thetao", "mean", "thetao") if thetao_ok else pd.DataFrame(columns=["depth_m","time_bin","thetao"])
@@ -1807,7 +1807,7 @@ elif view_mode == "水温図":
             cb2 = dict(title="Δ℃", x=1.02, y=0.22, len=0.42, thickness=12)
         
             contour_agg_label = (
-                contour_agg if "contour_agg" in locals() else ("1時間" if ("diff_freq" in locals() and diff_freq == "1H") else "日平均")
+                contour_agg if "contour_agg" in locals() else ("1時間" if ("diff_freq" in locals() and diff_freq == "1h") else "日平均")
             )
 
             z_plot = z_bg
