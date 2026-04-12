@@ -880,7 +880,7 @@ if view_mode == "ガイダンス":
         )
     except Exception:
         cal_choice = st.radio(
-            "", ["週間表示 "選択日"],
+            "", ["週間表示", "選択日"],
             index=0, horizontal=True, key="cal_choice_radio", label_visibility="collapsed"
         )
 
