@@ -1423,7 +1423,7 @@ elif view_mode == "水温図":
     contour_agg = st.session_state.get("graph_contour_agg", "日平均")
     if graph_style == "コンター":
         try:
-            contour_agg = st.segmented_control("", options=["1時間", "日平均"], default="日平均", key="graph_contour_agg")
+            contour_agg = st.segmented_control("", options=["1時間", "日平均"], default="1時間", key="graph_contour_agg")
         except Exception:
             contour_agg = st.radio("", ["1時間", "日平均"], index=1, horizontal=True, key="graph_contour_agg_radio", label_visibility="collapsed")
 
