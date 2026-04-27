@@ -1092,48 +1092,54 @@ elif view_mode == "CMEM":
         if cmem_view == "時系列":
             def _prep_grid(df_in: pd.DataFrame, value_col: str):
                 if df_in.empty:
-                    return None, None, None
+                    return None, None, None, None
                 dfw = df_in.copy()
                 dts = pd.to_datetime(dfw[dt_col], errors='coerce')
                 if cmem_period == "月別":
                     dfw['t'] = dts.dt.to_period('M').dt.to_timestamp()
                 else:
                     dfw['t'] = dts.dt.floor('D')
-                dfw = dfw.dropna(subset=['depth_m','t', value_col]).copy()
-                if dfw.empty:
-                    return None, None, None
                 dfw['depth_m'] = pd.to_numeric(dfw['depth_m'], errors='coerce').round(0).astype('Int64')
                 dfw[value_col] = pd.to_numeric(dfw[value_col], errors='coerce')
+                if 'Source' in dfw.columns:
+                    dfw['_src'] = dfw['Source'].astype(str).str.strip().str.upper()
+                else:
+                    dfw['_src'] = 'MY'
                 dfw = dfw.dropna(subset=['depth_m','t', value_col]).copy()
-                dfw = dfw.groupby(['depth_m','t'], as_index=False)[value_col].mean()
-
-                depths = sorted([int(d) for d in dfw['depth_m'].dropna().astype(int).unique().tolist()])
-                times = sorted(pd.to_datetime(dfw['t']).dropna().unique().tolist())
+                if dfw.empty:
+                    return None, None, None, None
+                def _src_agg(s: pd.Series) -> str:
+                    s = s.dropna().astype(str).str.strip().str.upper()
+                    return 'ANFC' if (s == 'ANFC').any() else 'MY'
+                g_val = dfw.groupby(['depth_m','t'], as_index=False)[value_col].mean()
+                g_src = dfw.groupby(['depth_m','t'])['_src'].apply(_src_agg).reset_index(name='_src')
+                dfw2 = pd.merge(g_val, g_src, on=['depth_m','t'], how='left')
+                depths = sorted([int(d) for d in dfw2['depth_m'].dropna().astype(int).unique().tolist()])
+                times = sorted(pd.to_datetime(dfw2['t']).dropna().unique().tolist())
                 if (not depths) or (not times):
-                    return None, None, None
+                    return None, None, None, None
+                piv_v = dfw2.pivot(index='depth_m', columns='t', values=value_col).reindex(index=depths, columns=times)
+                piv_s = dfw2.pivot(index='depth_m', columns='t', values='_src').reindex(index=depths, columns=times)
+                return times, depths, piv_v.values, piv_s.values
 
-                piv = dfw.pivot(index='depth_m', columns='t', values=value_col)
-                piv = piv.reindex(index=depths, columns=times)
-                z = piv.values
-                return times, depths, z
 
             rows = 0
             titles = []
             grids = []
             if show_thetao and (not df_t2.empty):
-                x, y, z = _prep_grid(df_t2, 'thetao')
+                x, y, z, src = _prep_grid(df_t2, 'thetao')
                 if x is not None:
                     rows += 1
                     titles.append("thetao（水温）")
-                    grids.append(('thetao', x, y, z, _cmem_contour_opacity(df_t2)))
+                    grids.append(('thetao', x, y, z, src))
             if show_chl and (not df_c2.empty):
                 df_c2 = df_c2.copy()
                 df_c2['chl_log'] = np.log10(np.maximum(pd.to_numeric(df_c2['chl'], errors='coerce'), 0.01))
-                x, y, z = _prep_grid(df_c2, 'chl_log')
+                x, y, z, src = _prep_grid(df_c2, 'chl_log')
                 if x is not None:
                     rows += 1
                     titles.append("log10(chl)")
-                    grids.append(('chl_log', x, y, z, _cmem_contour_opacity(df_c2)))
+                    grids.append(('chl_log', x, y, z, src))
 
             if rows == 0:
                 st.warning("CMEMデータが表示できません（空）")
@@ -1149,7 +1155,7 @@ elif view_mode == "CMEM":
             def _cbar_y(r: int) -> float:
                 return 1.0 - (r - 0.5) / rows
 
-            for r, (vname, x, y, z, op) in enumerate(grids, start=1):
+            for r, (vname, x, y, z, src) in enumerate(grids, start=1):
                 if vname == 'thetao':
                     colorscale = 'RdBu_r'
                     colorbar_title = '℃'
@@ -1157,16 +1163,60 @@ elif view_mode == "CMEM":
                     colorscale = 'Viridis'
                     colorbar_title = 'log10(chl)'
 
-                tr = go.Contour(
-                    x=x, y=y, z=z,
+                # Source=ANFC のセルだけ薄く（MYは通常の濃さ）
+
+                src_u = pd.DataFrame(src).astype(str).apply(lambda c: c.str.strip().str.upper()).values
+
+                mask_anfc = (src_u == 'ANFC')
+
+                z_my   = np.where(mask_anfc, np.nan, z)
+
+                z_anfc = np.where(mask_anfc, z, np.nan)
+
+
+                tr_my = go.Contour(
+
+                    x=x, y=y, z=z_my,
+
                     colorscale=colorscale,
-                    opacity=op,
+
                     contours=dict(coloring='heatmap', showlines=False),
+
+                    connectgaps=False,
+
                     ncontours=20,
+
                     colorbar=dict(title=colorbar_title, x=1.02, y=_cbar_y(r), yanchor='middle', len=0.75/rows),
+
                     hovertemplate="%{x}<br>Depth: %{y} m<br>Value: %{z:.4g}<extra></extra>"
+
                 )
-                fig.add_trace(tr, row=r, col=1)
+
+                fig.add_trace(tr_my, row=r, col=1)
+
+
+                tr_anfc = go.Contour(
+
+                    x=x, y=y, z=z_anfc,
+
+                    colorscale=colorscale,
+
+                    opacity=0.35,
+
+                    contours=dict(coloring='heatmap', showlines=False),
+
+                    connectgaps=False,
+
+                    ncontours=20,
+
+                    showscale=False,
+
+                    hovertemplate="%{x}<br>Depth: %{y} m<br>Value: %{z:.4g}<extra></extra>"
+
+                )
+
+                fig.add_trace(tr_anfc, row=r, col=1)
+
                 fig.update_yaxes(autorange='reversed', title_text="水深 (m)", row=r, col=1)
 
             title_suffix = "（時系列・月平均）" if cmem_period == "月別" else "（時系列・日別）"
@@ -1222,10 +1272,19 @@ elif view_mode == "CMEM":
                     df = df.assign(md=dts.dt.strftime("%m-%d"))
                     df = df[df["md"].isin(md_order)]
                     df = df.assign(x_idx=df["md"].map(md_order), x_label=df["md"])
-                return df.groupby(
-                    ["depth_m", "y", xname, "x_label"],
-                    as_index=False
-                )["thetao"].mean()
+                # Source を保持（ANFCが混在していればANFC）
+                df = df.copy()
+                if 'Source' in df.columns:
+                    df['_src'] = df['Source'].astype(str).str.strip().str.upper()
+                else:
+                    df['_src'] = 'MY'
+                keys = ['depth_m', 'y', xname, 'x_label']
+                g_val = df.groupby(keys, as_index=False)['thetao'].mean()
+                def _src_any_anfc(s: pd.Series) -> str:
+                    s = s.dropna().astype(str).str.strip().str.upper()
+                    return 'ANFC' if (s == 'ANFC').any() else 'MY'
+                g_src = df.groupby(keys)['_src'].apply(_src_any_anfc).reset_index(name='src')
+                return pd.merge(g_val, g_src, on=keys, how='left')
 
             def prep_chl(df):
                 if df.empty:
@@ -1247,23 +1306,87 @@ elif view_mode == "CMEM":
                     df = df.assign(md=dts.dt.strftime("%m-%d"))
                     df = df[df["md"].isin(md_order)]
                     df = df.assign(x_idx=df["md"].map(md_order), x_label=df["md"])
-                return df.groupby(
-                    ["depth_m", "y", xname, "x_label"],
-                    as_index=False
-                )["chl_log"].mean()
+                # Source を保持（ANFCが混在していればANFC）
+                df = df.copy()
+                if 'Source' in df.columns:
+                    df['_src'] = df['Source'].astype(str).str.strip().str.upper()
+                else:
+                    df['_src'] = 'MY'
+                keys = ['depth_m', 'y', xname, 'x_label']
+                g_val = df.groupby(keys, as_index=False)['chl_log'].mean()
+                def _src_any_anfc(s: pd.Series) -> str:
+                    s = s.dropna().astype(str).str.strip().str.upper()
+                    return 'ANFC' if (s == 'ANFC').any() else 'MY'
+                g_src = df.groupby(keys)['_src'].apply(_src_any_anfc).reset_index(name='src')
+                return pd.merge(g_val, g_src, on=keys, how='left')
 
             df_tg = prep_thetao(df_t2) if show_thetao else pd.DataFrame()
             df_cg = prep_chl(df_c2)    if show_chl else pd.DataFrame()
 
+
             def diff_base(df, valcol):
+
+
                 if df.empty:
+
+
                     return pd.DataFrame()
-                base = df[df["y"] == base_y][["depth_m", xname, "x_label", valcol]].rename(columns={valcol: "base"})
-                cmp = df[df["y"].isin(comp_sorted)][["depth_m", xname, "x_label", valcol]]
-                cmp_mean = cmp.groupby(["depth_m", xname, "x_label"], as_index=False)[valcol].mean()
-                cmp_mean = cmp_mean.rename(columns={valcol: "cmp"})
-                out = pd.merge(base, cmp_mean, on=["depth_m", xname, "x_label"])
-                out["diff"] = out["base"] - out["cmp"]   
+
+
+                keys = ['depth_m', xname, 'x_label']
+
+
+                if 'src' not in df.columns:
+
+
+                    df = df.copy(); df['src'] = 'MY'
+
+
+                base = df[df['y'] == base_y][keys + [valcol, 'src']].rename(columns={valcol: 'base', 'src': 'base_src'})
+
+
+                cmp  = df[df['y'].isin(comp_sorted)][keys + [valcol, 'src']]
+
+
+                if base.empty or cmp.empty:
+
+
+                    return pd.DataFrame()
+
+
+                cmp_mean = cmp.groupby(keys, as_index=False)[valcol].mean().rename(columns={valcol: 'cmp'})
+
+
+                def _src_any_anfc(s: pd.Series) -> str:
+
+
+                    s = s.dropna().astype(str).str.strip().str.upper()
+
+
+                    return 'ANFC' if (s == 'ANFC').any() else 'MY'
+
+
+                cmp_src = cmp.groupby(keys)['src'].apply(_src_any_anfc).reset_index(name='cmp_src')
+
+
+                out = pd.merge(base, cmp_mean, on=keys)
+
+
+                out = pd.merge(out, cmp_src, on=keys, how='left')
+
+
+                out['diff'] = out['base'] - out['cmp']
+
+
+                b = out['base_src'].astype(str).str.strip().str.upper()
+
+
+                c = out['cmp_src'].astype(str).str.strip().str.upper()
+
+
+                out['src'] = np.where((b == 'ANFC') | (c == 'ANFC'), 'ANFC', 'MY')
+
+
                 return out
 
             df_tdiff = diff_base(df_tg, "thetao")
@@ -1298,6 +1421,28 @@ elif view_mode == "CMEM":
                     .reindex(index=depths_sorted, columns=x_grid)
                 )
                 return pv.values
+
+
+        
+            def _pivot_anfc(df_diff: pd.DataFrame) -> np.ndarray:
+
+        
+                if df_diff.empty or ('src' not in df_diff.columns):
+
+        
+                    return np.zeros((len(depths_sorted), len(x_grid)), dtype=bool)
+
+        
+                tmp = df_diff.copy()
+
+        
+                tmp['_anfc'] = tmp['src'].astype(str).str.strip().str.upper().eq('ANFC')
+
+        
+                pv = tmp.pivot_table(index='depth_m', columns=xname, values='_anfc', aggfunc='max').reindex(index=depths_sorted, columns=x_grid)
+
+        
+                return pv.fillna(False).astype(bool).values
         
             def _sym_zrange(z: np.ndarray, fallback: float = 1.0) -> float:
                 """0中心の対称レンジ用 maxabs を返す。"""
@@ -1351,12 +1496,15 @@ elif view_mode == "CMEM":
         
             if show_t:
                 zt = _pivot_z(df_tdiff)
+                mask_t = _pivot_anfc(df_tdiff)
+                zt_my   = np.where(mask_t, np.nan, zt)
+                zt_anfc = np.where(mask_t, zt, np.nan)
                 maxabs_t = _sym_zrange(zt, fallback=0.5)
                 fig.add_trace(
                     go.Contour(
-                        x=x_grid, y=depths_sorted, z=zt,
+                        x=x_grid, y=depths_sorted, z=zt_my,
                         colorscale="RdBu_r", zmin=-maxabs_t, zmax=maxabs_t,
-                        opacity=op_t_cmem,
+                        
                         contours=dict(coloring="heatmap"), connectgaps=False,
                         colorbar=dict(title="℃", x=1.02, y=(0.78 if nrows == 2 else 0.50), len=(0.42 if nrows == 2 else 0.85)),
                         customdata=_custom_xlabels_2d(),
@@ -1365,23 +1513,76 @@ elif view_mode == "CMEM":
                     row=row_i, col=1
                 )
 
+
+                fig.add_trace(
+
+                    go.Contour(
+
+                        x=x_grid, y=depths_sorted, z=zt_anfc,
+
+                        colorscale="RdBu_r", zmin=-maxabs_t, zmax=maxabs_t,
+
+                        opacity=0.35,
+
+                        contours=dict(coloring="heatmap"), connectgaps=False,
+
+                        showscale=False,
+
+                        customdata=_custom_xlabels_2d(),
+
+                        hovertemplate="時点:%{customdata}<br>水深:%{y} m<br>差:%{z:.2f} ℃<extra></extra>"
+
+                    ),
+
+                    row=row_i, col=1
+
+                )
+
                 fig.update_yaxes(autorange="reversed", title_text="水深 (m)", row=row_i, col=1)
                 row_i += 1
         
             if show_c:
                 zc = _pivot_z(df_cdiff)
+                mask_c = _pivot_anfc(df_cdiff)
+                zc_my   = np.where(mask_c, np.nan, zc)
+                zc_anfc = np.where(mask_c, zc, np.nan)
                 maxabs_c = _sym_zrange(zc, fallback=0.3)
                 fig.add_trace(
                     go.Contour(
-                        x=x_grid, y=depths_sorted, z=zc,
+                        x=x_grid, y=depths_sorted, z=zc_my,
                         colorscale="RdBu_r", zmin=-maxabs_c, zmax=maxabs_c,
-                        opacity=op_c_cmem,
+                        
                         contours=dict(coloring="heatmap"), connectgaps=False,
                         colorbar=dict(title="log10", x=1.02, y=(0.22 if nrows == 2 else 0.50), len=(0.42 if nrows == 2 else 0.85)),
                         customdata=_custom_xlabels_2d(),
                         hovertemplate="時点:%{customdata}<br>水深:%{y} m<br>差:%{z:.2f} (log10)<extra></extra>"
                     ),
                     row=row_i, col=1
+                )
+
+
+                fig.add_trace(
+
+                    go.Contour(
+
+                        x=x_grid, y=depths_sorted, z=zc_anfc,
+
+                        colorscale="RdBu_r", zmin=-maxabs_c, zmax=maxabs_c,
+
+                        opacity=0.35,
+
+                        contours=dict(coloring="heatmap"), connectgaps=False,
+
+                        showscale=False,
+
+                        customdata=_custom_xlabels_2d(),
+
+                        hovertemplate="時点:%{customdata}<br>水深:%{y} m<br>差:%{z:.2f} log10<extra></extra>"
+
+                    ),
+
+                    row=row_i, col=1
+
                 )
 
                 fig.update_yaxes(autorange="reversed", title_text="水深 (m)", row=row_i, col=1)
