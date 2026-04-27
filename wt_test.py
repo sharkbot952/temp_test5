@@ -141,6 +141,17 @@ def to_rgba(color: str, alpha: float = 0.18) -> str:
             return f"rgba(0,150,0,{alpha})"
     return c
 
+
+# ---- CMEM: ANFC混在時はコンターを薄く表示（文字追加なし） ----
+def _cmem_has_anfc(df: pd.DataFrame) -> bool:
+    if df is None or df.empty or ("Source" not in df.columns):
+        return False
+    s = df["Source"].astype(str).str.strip().str.upper()
+    return (s == "ANFC").any()
+
+def _cmem_contour_opacity(df: pd.DataFrame, anfc_opacity: float = 0.35, normal_opacity: float = 1.0) -> float:
+    return anfc_opacity if _cmem_has_anfc(df) else normal_opacity
+
 # ---- キャッシュ無効化用：ファイル指紋 ----
 def file_fingerprint(path: str) -> str:
     p = Path(path)
@@ -1114,7 +1125,7 @@ elif view_mode == "CMEM":
                 if x is not None:
                     rows += 1
                     titles.append("thetao（水温）")
-                    grids.append(('thetao', x, y, z))
+                    grids.append(('thetao', x, y, z, _cmem_contour_opacity(df_t2)))
             if show_chl and (not df_c2.empty):
                 df_c2 = df_c2.copy()
                 df_c2['chl_log'] = np.log10(np.maximum(pd.to_numeric(df_c2['chl'], errors='coerce'), 0.01))
@@ -1122,7 +1133,7 @@ elif view_mode == "CMEM":
                 if x is not None:
                     rows += 1
                     titles.append("log10(chl)")
-                    grids.append(('chl_log', x, y, z))
+                    grids.append(('chl_log', x, y, z, _cmem_contour_opacity(df_c2)))
 
             if rows == 0:
                 st.warning("CMEMデータが表示できません（空）")
@@ -1138,7 +1149,7 @@ elif view_mode == "CMEM":
             def _cbar_y(r: int) -> float:
                 return 1.0 - (r - 0.5) / rows
 
-            for r, (vname, x, y, z) in enumerate(grids, start=1):
+            for r, (vname, x, y, z, op) in enumerate(grids, start=1):
                 if vname == 'thetao':
                     colorscale = 'RdBu_r'
                     colorbar_title = '℃'
@@ -1149,6 +1160,7 @@ elif view_mode == "CMEM":
                 tr = go.Contour(
                     x=x, y=y, z=z,
                     colorscale=colorscale,
+                    opacity=op,
                     contours=dict(coloring='heatmap', showlines=False),
                     ncontours=20,
                     colorbar=dict(title=colorbar_title, x=1.02, y=_cbar_y(r), yanchor='middle', len=0.75/rows),
@@ -1299,6 +1311,24 @@ elif view_mode == "CMEM":
             def _custom_xlabels_2d() -> np.ndarray:
                 return np.tile(np.array(x_labels, dtype=object), (len(depths_sorted), 1))
         
+
+            def _cmem_filter_for_opacity(df_in: pd.DataFrame) -> pd.DataFrame:
+                if df_in is None or df_in.empty or (dt_col not in df_in.columns):
+                    return df_in
+                dts = pd.to_datetime(df_in[dt_col], errors='coerce')
+                df2 = df_in.copy()
+                df2['_dts'] = dts
+                years_target = [int(base_y)] + [int(y) for y in comp_sorted]
+                df2 = df2[df2['_dts'].dt.year.isin(years_target)]
+                if cmem_period == '月別':
+                    df2 = df2[(df2['_dts'].dt.month >= int(m_start)) & (df2['_dts'].dt.month <= int(m_end))]
+                else:
+                    df2 = df2[df2['_dts'].dt.strftime('%m-%d').isin(md_order)]
+                return df2
+
+            op_t_cmem = _cmem_contour_opacity(_cmem_filter_for_opacity(df_t2)) if show_thetao else 1.0
+            op_c_cmem = _cmem_contour_opacity(_cmem_filter_for_opacity(df_c2)) if show_chl else 1.0
+
             show_t = (show_thetao and (not df_tdiff.empty))
             show_c = (show_chl and (not df_cdiff.empty))
             if (not show_t) and (not show_c):
@@ -1326,6 +1356,7 @@ elif view_mode == "CMEM":
                     go.Contour(
                         x=x_grid, y=depths_sorted, z=zt,
                         colorscale="RdBu_r", zmin=-maxabs_t, zmax=maxabs_t,
+                        opacity=op_t_cmem,
                         contours=dict(coloring="heatmap"), connectgaps=False,
                         colorbar=dict(title="℃", x=1.02, y=(0.78 if nrows == 2 else 0.50), len=(0.42 if nrows == 2 else 0.85)),
                         customdata=_custom_xlabels_2d(),
@@ -1344,6 +1375,7 @@ elif view_mode == "CMEM":
                     go.Contour(
                         x=x_grid, y=depths_sorted, z=zc,
                         colorscale="RdBu_r", zmin=-maxabs_c, zmax=maxabs_c,
+                        opacity=op_c_cmem,
                         contours=dict(coloring="heatmap"), connectgaps=False,
                         colorbar=dict(title="log10", x=1.02, y=(0.22 if nrows == 2 else 0.50), len=(0.42 if nrows == 2 else 0.85)),
                         customdata=_custom_xlabels_2d(),
