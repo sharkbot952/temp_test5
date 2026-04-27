@@ -36,6 +36,11 @@ DISPLAY_MODE = "arrow"
 
 WEEK_WINDOW_FORWARD = True  # True: 今日→先7日（計8日）、False: 過去7日→今日（計8日）
 
+# CMEM 表示パラメータ（Source=ANFCのセルだけ薄く）
+CMEM_ANFC_OPACITY = 0.65  # 0.55→薄さを弱める（濃くする）
+CMEM_NCONTOURS = 12       # 20→軽量化（階調を少し減らす）
+
+
 def pjoin(*parts: str) -> str:
     return os.path.normpath(os.path.join(*parts))
 
@@ -1179,7 +1184,7 @@ elif view_mode == "CMEM":
                     colorscale=colorscale,
                     contours=dict(coloring='heatmap', showlines=False),
                     connectgaps=False,
-                    ncontours=20,
+                    ncontours=CMEM_NCONTOURS,
                     colorbar=dict(title=colorbar_title, x=1.02, y=_cbar_y(r), yanchor='middle', len=0.75/rows),
                     hovertemplate="%{x}<br>Depth: %{y} m<br>Value: %{z:.4g}<extra></extra>"
 
@@ -1190,10 +1195,10 @@ elif view_mode == "CMEM":
                 tr_anfc = go.Contour(
                     x=x, y=y, z=z_anfc,
                     colorscale=colorscale,
-                    opacity=0.55,
+                    opacity=CMEM_ANFC_OPACITY,
                     contours=dict(coloring='heatmap', showlines=False),
                     connectgaps=False,
-                    ncontours=20,
+                    ncontours=CMEM_NCONTOURS,
                     showscale=False,
                     hovertemplate="%{x}<br>Depth: %{y} m<br>Value: %{z:.4g}<extra></extra>"
                 )
@@ -1501,7 +1506,7 @@ elif view_mode == "CMEM":
                     go.Contour(
                         x=x_grid, y=depths_sorted, z=zt_anfc,
                         colorscale="RdBu_r", zmin=-maxabs_t, zmax=maxabs_t,
-                        opacity=0.55,
+                        opacity=CMEM_ANFC_OPACITY,
                         contours=dict(coloring="heatmap"), connectgaps=False,
                         showscale=False,
                         customdata=_custom_xlabels_2d(),
@@ -1538,7 +1543,7 @@ elif view_mode == "CMEM":
                     go.Contour(
                         x=x_grid, y=depths_sorted, z=zc_anfc,
                         colorscale="RdBu_r", zmin=-maxabs_c, zmax=maxabs_c,
-                        opacity=0.55,
+                        opacity=CMEM_ANFC_OPACITY,
                         contours=dict(coloring="heatmap"), connectgaps=False,
                         showscale=False,
                         customdata=_custom_xlabels_2d(),
