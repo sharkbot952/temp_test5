@@ -149,7 +149,7 @@ def _cmem_has_anfc(df: pd.DataFrame) -> bool:
     s = df["Source"].astype(str).str.strip().str.upper()
     return (s == "ANFC").any()
 
-def _cmem_contour_opacity(df: pd.DataFrame, anfc_opacity: float = 0.35, normal_opacity: float = 1.0) -> float:
+def _cmem_contour_opacity(df: pd.DataFrame, anfc_opacity: float = 0.55, normal_opacity: float = 1.0) -> float:
     return anfc_opacity if _cmem_has_anfc(df) else normal_opacity
 
 # ---- キャッシュ無効化用：ファイル指紋 ----
@@ -1175,44 +1175,27 @@ elif view_mode == "CMEM":
 
 
                 tr_my = go.Contour(
-
                     x=x, y=y, z=z_my,
-
                     colorscale=colorscale,
-
                     contours=dict(coloring='heatmap', showlines=False),
-
                     connectgaps=False,
-
                     ncontours=20,
-
                     colorbar=dict(title=colorbar_title, x=1.02, y=_cbar_y(r), yanchor='middle', len=0.75/rows),
-
                     hovertemplate="%{x}<br>Depth: %{y} m<br>Value: %{z:.4g}<extra></extra>"
 
                 )
 
                 fig.add_trace(tr_my, row=r, col=1)
 
-
                 tr_anfc = go.Contour(
-
                     x=x, y=y, z=z_anfc,
-
                     colorscale=colorscale,
-
-                    opacity=0.35,
-
+                    opacity=0.55,
                     contours=dict(coloring='heatmap', showlines=False),
-
                     connectgaps=False,
-
                     ncontours=20,
-
                     showscale=False,
-
                     hovertemplate="%{x}<br>Depth: %{y} m<br>Value: %{z:.4g}<extra></extra>"
-
                 )
 
                 fig.add_trace(tr_anfc, row=r, col=1)
