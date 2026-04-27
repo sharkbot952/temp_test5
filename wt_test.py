@@ -29,12 +29,12 @@ OBS_MATCH_TOL_MIN = 60
 CORR_MATCH_TOL_MIN = 60   
 TEMP_MIN, TEMP_MAX = -2.0, 40.0
 PHYS_MIN, PHYS_MAX = -1.5, 35.0
-HIGH_TEMP_TH = 22.0       # コメント用
+HIGH_TEMP_TH = 22.0       
 RANGE_STABLE = 0.5
 DELTA_THRESH = 0.3
 DISPLAY_MODE = "arrow"
 
-WEEK_WINDOW_FORWARD = True  # True: 今日→先7日（計8日）、False: 過去7日→今日（計8日）
+WEEK_WINDOW_FORWARD = True  
 
 def pjoin(*parts: str) -> str:
     return os.path.normpath(os.path.join(*parts))
@@ -156,9 +156,8 @@ def obs_fingerprint(base_dir: str, obs_dir: str, filename: str) -> str:
     path = os.path.normpath(os.path.join(base_dir, obs_dir, filename))
     return file_fingerprint(path)
 
-# =========================================
 # ローダ（fp をキーに追加）
-# =========================================
+
 @st.cache_data(show_spinner=False)
 def load_pred(filename: str, fp: str = "") -> pd.DataFrame:
     path = pjoin(BASE_DIR, PRED_DIR, filename)
@@ -229,9 +228,8 @@ def load_obs_for(filename: str, fp: str = "") -> pd.DataFrame:
     df = df.dropna(subset=["datetime", "depth_m"]).copy()
     df["date_day"] = df["datetime"].dt.date
     return df
-# =========================================
+
 # CMEM ローダ（thetao / chl）
-# =========================================
 
 def _extract_site_from_filename(fname: str, prefix: str) -> str:
     base = os.path.basename(fname)
@@ -400,9 +398,7 @@ div[data-testid="stTabs"] button[data-baseweb="tab"]{ padding: 2px 8px !importan
     """
     st_html(compact_css, height=0)
 
-# =========================================
 # カレンダー表示の部品（補正値＆矢印を表示）
-# =========================================
 HEAD_LENGTH_RATIO = 0.55
 HEAD_HALF_HEIGHT_RATIO = 0.35
 SHAFT_WIDTH_PX = 4.0
@@ -569,20 +565,14 @@ def build_weekly_table_html(df_period: pd.DataFrame, day_list: List[pd.Timestamp
                     if vo.notna().sum() >= 1:
                         obs_rep = float(vo.median())
 
-                # -----------------------------
                 # (B) 流れ：
-                # -----------------------------
                 target_dt = pd.Timestamp(day.date()) + pd.Timedelta(hours=12)
                 row = g.assign(_diff=(g["datetime"] - target_dt).abs()).sort_values("_diff").iloc[[0]]
 
                 speed_val = float(row["Speed"].values[0]) if "Speed" in row.columns else np.nan
                 dir_val   = float(row["Direction_deg"].values[0]) if "Direction_deg" in row.columns else np.nan
 
-                # -----------------------------
                 # セル描画：温度は代表値で渡す
-                # - pred側は pred_rep
-                # - corr側は corr_rep（Noneなら表示されない）
-                # -----------------------------
                 html += render_cell_html(
                     temp_pred=pred_rep,
                     speed_mps=speed_val,
@@ -599,7 +589,6 @@ def build_weekly_table_html(df_period: pd.DataFrame, day_list: List[pd.Timestamp
 
     html += "</tbody></table></div>"
     return html
-
 
 def build_daily_table_html(df_day: pd.DataFrame, depths: List[int], corr_on: bool) -> str:
     hours_list = sorted(df_day["datetime"].dt.floor("h").unique())
@@ -814,7 +803,7 @@ inject_compact_css()
 
 try:
     view_mode = st.segmented_control(
-        "",  # ラベル非表示
+        "", 
         options=["ガイダンス", "水温図", "CMEM"],
         default="ガイダンス"
     )
@@ -824,8 +813,6 @@ except Exception:
         index=0, horizontal=True, label_visibility="collapsed"
     )
 
-# pred ファイル選択（ラベル非表示）
-# - CMEM だけ閲覧したいケースに対応するため、CMEM モードでは pred を必須にしない
 selected_file = None
 pred_path = corr_path = obs_path = ""
 fp_pred = fp_corr = fp_obs = ""
@@ -1200,21 +1187,17 @@ elif view_mode == "CMEM":
                 for bx in boundary_x:
                     for rr in range(1, rows+1):
                         try:
-                            # 白縁（太線）：solidが安定
                             fig.add_vline(
                                 x=bx, row=rr, col=1,
                                 line_width=6, line_dash='solid',
                                 line_color='white', opacity=0.75
                             )
-                            # 本線（黒）：dotかdash
                             fig.add_vline(
                                 x=bx, row=rr, col=1,
                                 line_width=2, line_dash='dot',
                                 line_color='black', opacity=0.85
                             )
                         except Exception:
-                            # フォールバックでも2本描く（最低限）
-                            # ※ xref は環境でズレやすいので、まずは 'x' を使うほうがマシな場合が多い
                             fig.add_shape(
                                 type='line', x0=bx, x1=bx, y0=0, y1=1,
                                 xref='x', yref='paper',
