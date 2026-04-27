@@ -1498,27 +1498,17 @@ elif view_mode == "CMEM":
 
 
                 fig.add_trace(
-
                     go.Contour(
-
                         x=x_grid, y=depths_sorted, z=zt_anfc,
-
                         colorscale="RdBu_r", zmin=-maxabs_t, zmax=maxabs_t,
-
-                        opacity=0.35,
-
+                        opacity=0.55,
                         contours=dict(coloring="heatmap"), connectgaps=False,
-
                         showscale=False,
-
                         customdata=_custom_xlabels_2d(),
-
                         hovertemplate="時点:%{customdata}<br>水深:%{y} m<br>差:%{z:.2f} ℃<extra></extra>"
-
                     ),
 
                     row=row_i, col=1
-
                 )
 
                 fig.update_yaxes(autorange="reversed", title_text="水深 (m)", row=row_i, col=1)
@@ -1545,27 +1535,16 @@ elif view_mode == "CMEM":
 
 
                 fig.add_trace(
-
                     go.Contour(
-
                         x=x_grid, y=depths_sorted, z=zc_anfc,
-
                         colorscale="RdBu_r", zmin=-maxabs_c, zmax=maxabs_c,
-
-                        opacity=0.35,
-
+                        opacity=0.55,
                         contours=dict(coloring="heatmap"), connectgaps=False,
-
                         showscale=False,
-
                         customdata=_custom_xlabels_2d(),
-
                         hovertemplate="時点:%{customdata}<br>水深:%{y} m<br>差:%{z:.2f} log10<extra></extra>"
-
                     ),
-
                     row=row_i, col=1
-
                 )
 
                 fig.update_yaxes(autorange="reversed", title_text="水深 (m)", row=row_i, col=1)
