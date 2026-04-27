@@ -1203,7 +1203,7 @@ elif view_mode == "CMEM":
                             # 白縁（太線）：solidが安定
                             fig.add_vline(
                                 x=bx, row=rr, col=1,
-                                line_width=4, line_dash='solid',
+                                line_width=6, line_dash='solid',
                                 line_color='white', opacity=0.75
                             )
                             # 本線（黒）：dotかdash
@@ -1218,7 +1218,7 @@ elif view_mode == "CMEM":
                             fig.add_shape(
                                 type='line', x0=bx, x1=bx, y0=0, y1=1,
                                 xref='x', yref='paper',
-                                line=dict(color='white', width=4, dash='solid'),
+                                line=dict(color='white', width=6, dash='solid'),
                                 opacity=0.75
                             )
                             fig.add_shape(
