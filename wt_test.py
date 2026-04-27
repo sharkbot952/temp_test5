@@ -36,11 +36,6 @@ DISPLAY_MODE = "arrow"
 
 WEEK_WINDOW_FORWARD = True  # True: 今日→先7日（計8日）、False: 過去7日→今日（計8日）
 
-# CMEM 表示パラメータ（Source=ANFCのセルだけ薄く）
-CMEM_ANFC_OPACITY = 0.65  # 0.55→薄さを弱める（濃くする）
-CMEM_NCONTOURS = 12       # 20→軽量化（階調を少し減らす）
-
-
 def pjoin(*parts: str) -> str:
     return os.path.normpath(os.path.join(*parts))
 
@@ -1174,17 +1169,17 @@ elif view_mode == "CMEM":
 
                 mask_anfc = (src_u == 'ANFC')
 
-                z_my   = np.where(mask_anfc, np.nan, z)
+                # z_my は作らない（MY側は全セルを保持）
 
                 z_anfc = np.where(mask_anfc, z, np.nan)
 
 
                 tr_my = go.Contour(
-                    x=x, y=y, z=z_my,
+    x=x, y=y, z=z,
                     colorscale=colorscale,
                     contours=dict(coloring='heatmap', showlines=False),
                     connectgaps=False,
-                    ncontours=CMEM_NCONTOURS,
+                    ncontours=20,
                     colorbar=dict(title=colorbar_title, x=1.02, y=_cbar_y(r), yanchor='middle', len=0.75/rows),
                     hovertemplate="%{x}<br>Depth: %{y} m<br>Value: %{z:.4g}<extra></extra>"
 
@@ -1195,11 +1190,12 @@ elif view_mode == "CMEM":
                 tr_anfc = go.Contour(
                     x=x, y=y, z=z_anfc,
                     colorscale=colorscale,
-                    opacity=CMEM_ANFC_OPACITY,
+                    opacity=0.55,
                     contours=dict(coloring='heatmap', showlines=False),
                     connectgaps=False,
-                    ncontours=CMEM_NCONTOURS,
-                    showscale=False,
+                    ncontours=20,
+                    hoverinfo='skip',
+    showscale=False,
                     hovertemplate="%{x}<br>Depth: %{y} m<br>Value: %{z:.4g}<extra></extra>"
                 )
 
@@ -1485,12 +1481,12 @@ elif view_mode == "CMEM":
             if show_t:
                 zt = _pivot_z(df_tdiff)
                 mask_t = _pivot_anfc(df_tdiff)
-                zt_my   = np.where(mask_t, np.nan, zt)
+                # zt_my は作らない（MY側は全セルを保持）
                 zt_anfc = np.where(mask_t, zt, np.nan)
                 maxabs_t = _sym_zrange(zt, fallback=0.5)
                 fig.add_trace(
                     go.Contour(
-                        x=x_grid, y=depths_sorted, z=zt_my,
+                        x=x_grid, y=depths_sorted, z=zt,
                         colorscale="RdBu_r", zmin=-maxabs_t, zmax=maxabs_t,
                         
                         contours=dict(coloring="heatmap"), connectgaps=False,
@@ -1506,7 +1502,7 @@ elif view_mode == "CMEM":
                     go.Contour(
                         x=x_grid, y=depths_sorted, z=zt_anfc,
                         colorscale="RdBu_r", zmin=-maxabs_t, zmax=maxabs_t,
-                        opacity=CMEM_ANFC_OPACITY,
+                        opacity=0.55,
                         contours=dict(coloring="heatmap"), connectgaps=False,
                         showscale=False,
                         customdata=_custom_xlabels_2d(),
@@ -1522,12 +1518,12 @@ elif view_mode == "CMEM":
             if show_c:
                 zc = _pivot_z(df_cdiff)
                 mask_c = _pivot_anfc(df_cdiff)
-                zc_my   = np.where(mask_c, np.nan, zc)
+                # zc_my は作らない（MY側は全セルを保持）
                 zc_anfc = np.where(mask_c, zc, np.nan)
                 maxabs_c = _sym_zrange(zc, fallback=0.3)
                 fig.add_trace(
                     go.Contour(
-                        x=x_grid, y=depths_sorted, z=zc_my,
+                        x=x_grid, y=depths_sorted, z=zc,
                         colorscale="RdBu_r", zmin=-maxabs_c, zmax=maxabs_c,
                         
                         contours=dict(coloring="heatmap"), connectgaps=False,
@@ -1543,7 +1539,7 @@ elif view_mode == "CMEM":
                     go.Contour(
                         x=x_grid, y=depths_sorted, z=zc_anfc,
                         colorscale="RdBu_r", zmin=-maxabs_c, zmax=maxabs_c,
-                        opacity=CMEM_ANFC_OPACITY,
+                        opacity=0.55,
                         contours=dict(coloring="heatmap"), connectgaps=False,
                         showscale=False,
                         customdata=_custom_xlabels_2d(),
