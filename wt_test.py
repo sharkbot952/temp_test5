@@ -1200,13 +1200,33 @@ elif view_mode == "CMEM":
                 for bx in boundary_x:
                     for rr in range(1, rows+1):
                         try:
-                            fig.add_vline(x=bx, line_width=5, line_dash='dot', line_color='white', opacity=0.85, row=rr, col=1)
-                            fig.add_vline(x=bx, line_width=2, line_dash='dot', line_color='black', opacity=0.85, row=rr, col=1)
+                            # 白縁（太線）：solidが安定
+                            fig.add_vline(
+                                x=bx, row=rr, col=1,
+                                line_width=4, line_dash='solid',
+                                line_color='white', opacity=0.75
+                            )
+                            # 本線（黒）：dotかdash
+                            fig.add_vline(
+                                x=bx, row=rr, col=1,
+                                line_width=2, line_dash='dot',
+                                line_color='black', opacity=0.85
+                            )
                         except Exception:
-                            # add_vline が無い環境向けフォールバック
-                            fig.add_shape(type='line', x0=bx, x1=bx, y0=0, y1=1, xref=f'x{rr}', yref='paper',
-                                          line=dict(color='black', width=5, dash='dot'), opacity=0.7)
-
+                            # フォールバックでも2本描く（最低限）
+                            # ※ xref は環境でズレやすいので、まずは 'x' を使うほうがマシな場合が多い
+                            fig.add_shape(
+                                type='line', x0=bx, x1=bx, y0=0, y1=1,
+                                xref='x', yref='paper',
+                                line=dict(color='white', width=4, dash='solid'),
+                                opacity=0.75
+                            )
+                            fig.add_shape(
+                                type='line', x0=bx, x1=bx, y0=0, y1=1,
+                                xref='x', yref='paper',
+                                line=dict(color='black', width=2, dash='dot'),
+                                opacity=0.85
+                            )
 
             title_suffix = "（時系列・月平均）" if cmem_period == "月別" else "（時系列・日別）"
             fig.update_layout(
