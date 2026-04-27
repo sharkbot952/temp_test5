@@ -1200,7 +1200,7 @@ elif view_mode == "CMEM":
                 for bx in boundary_x:
                     for rr in range(1, rows+1):
                         try:
-                            fig.add_vline(x=bx, line_width=5, line_dash='dot', line_color='white', opacity=0.85, row=rr, col=1)
+                            fig.add_vline(x=bx, line_width=5, line_dash='line', line_color='white', opacity=0.85, row=rr, col=1)
                             fig.add_vline(x=bx, line_width=2, line_dash='dot', line_color='black', opacity=0.85, row=rr, col=1)
                         except Exception:
                             # add_vline が無い環境向けフォールバック
