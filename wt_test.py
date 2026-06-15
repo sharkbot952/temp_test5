@@ -828,9 +828,8 @@ if view_mode != "CMEM":
         st.warning("pred に CSV がありません")
         st.stop()
 
-    selected_file = st.selectbox(
-        "", sorted(pred_files), key="sel_pred_file", label_visibility="collapsed"
-    )
+    default_file = "98_osh.csv"
+    selected_file = st.selectbox("", sorted(pred_files), index=(sorted(pred_files).index(default_file) if default_file in sorted(pred_files) else 0), key="sel_pred_file", label_visibility="collapsed")
 
     pred_path = pjoin(BASE_DIR, PRED_DIR, selected_file)
     corr_name, ext = os.path.splitext(selected_file)
@@ -983,6 +982,8 @@ elif view_mode == "CMEM":
         st.warning("data/cmem/thetao と data/cmem/chl にサイトCSVがありません")
         st.stop()
 
+    default_site = "98_osh"
+
     if selected_file:
         site_guess = os.path.splitext(selected_file)[0]
         if site_guess not in sites:
@@ -990,7 +991,13 @@ elif view_mode == "CMEM":
             st.stop()
         sel_site = site_guess
     else:
-        sel_site = st.selectbox("", sites, key="cmem_site", label_visibility="collapsed")
+        sel_site = st.selectbox(
+            "",
+            sites,
+            index=(sites.index(default_site) if default_site in sites else 0),
+            key="cmem_site",
+            label_visibility="collapsed"
+        )
 
     path_t = pjoin(BASE_DIR, CMEM_DIR, CMEM_THETAO_DIR, f"thetao_{sel_site}.csv")
     path_c = pjoin(BASE_DIR, CMEM_DIR, CMEM_CHL_DIR, f"chl_{sel_site}.csv")
