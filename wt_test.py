@@ -807,7 +807,7 @@ const id = "trial-note-fixed";
 if (!window.parent.document.getElementById(id)) {
   const div = window.parent.document.createElement("div");
   div.id = id;
-  div.innerText = "※試験・非商用";
+  div.innerText = "※試験・関係者限定";
   div.style.position = "fixed";
   div.style.top = "6px";
   div.style.left = "10px";
