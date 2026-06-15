@@ -801,6 +801,26 @@ def summarize_daily_layer_flow(
 # =========================================
 inject_compact_css()
 
+st_html("""
+<script>
+const id = "trial-note-fixed";
+if (!window.parent.document.getElementById(id)) {
+  const div = window.parent.document.createElement("div");
+  div.id = id;
+  div.innerText = "※試験・非商用";
+  div.style.position = "fixed";
+  div.style.top = "6px";
+  div.style.left = "10px";
+  div.style.fontSize = "15px";
+  div.style.color = "rgba(120,120,120,0.8)";
+  div.style.zIndex = "999999";
+  div.style.pointerEvents = "none";
+  window.parent.document.body.appendChild(div);
+}
+
+</script>
+""", height=0)
+
 try:
     view_mode = st.segmented_control(
         "", 
