@@ -23,7 +23,7 @@ CMEM_CHL_DIR = "chl"
 
 # 固定パラメータ
 RECENT_DAYS = 7           
-OUTLIER_TH = 4.0          
+OUTLIER_TH = 6.0          
 OUTLIER_TH_OBS = 2.0      
 OBS_MATCH_TOL_MIN = 60    
 CORR_MATCH_TOL_MIN = 60   
